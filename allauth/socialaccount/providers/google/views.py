@@ -1,4 +1,5 @@
 import requests
+from django.core.urlresolvers import reverse
 
 from allauth.socialaccount.providers.oauth2.views import (OAuth2Adapter,
                                                           OAuth2LoginView,
@@ -8,6 +9,7 @@ from allauth.socialaccount.models import SocialLogin, SocialAccount
 from allauth.utils import get_user_model
 
 from provider import GoogleProvider
+from client import GoogleClient
 
 User = get_user_model()
 
@@ -41,8 +43,29 @@ class GoogleOAuth2Adapter(OAuth2Adapter):
                                 uid=uid,
                                 provider=self.provider_id,
                                 user=user)
-        return SocialLogin(account)
+        return SocialLogin(account) 
 
-oauth2_login = OAuth2LoginView.adapter_view(GoogleOAuth2Adapter)
-oauth2_callback = OAuth2CallbackView.adapter_view(GoogleOAuth2Adapter)
+class GoogleLoginView(OAuth2LoginView):
+    def get_client(self, request, app):
+        callback_url = reverse(self.adapter.provider_id + "_callback")
+        callback_url = request.build_absolute_uri(callback_url)
+        client = GoogleClient(self.request, app.client_id, app.secret,
+                              self.adapter.authorize_url,
+                              self.adapter.access_token_url,
+                              callback_url,
+                              self.adapter.get_provider().get_scope())
+        return client
 
+class GoogleCallbackView(OAuth2CallbackView):
+    def get_client(self, request, app):
+        callback_url = reverse(self.adapter.provider_id + "_callback")
+        callback_url = request.build_absolute_uri(callback_url)
+        client = GoogleClient(self.request, app.client_id, app.secret,
+                              self.adapter.authorize_url,
+                              self.adapter.access_token_url,
+                              callback_url,
+                              self.adapter.get_provider().get_scope())
+        return client
+
+oauth2_login = GoogleLoginView.adapter_view(GoogleOAuth2Adapter)
+oauth2_callback = GoogleCallbackView.adapter_view(GoogleOAuth2Adapter)
