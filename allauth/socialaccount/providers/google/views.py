@@ -4,7 +4,7 @@ from allauth.socialaccount.providers.oauth2.views import (OAuth2Adapter,
                                                           OAuth2LoginView,
                                                           OAuth2CallbackView)
 
-from allauth.socialaccount.models import SocialLogin, SocialAccount
+from allauth.socialaccount.models import GoogleSocialLogin, SocialAccount
 from allauth.utils import get_user_model
 
 from provider import GoogleProvider
@@ -41,7 +41,7 @@ class GoogleOAuth2Adapter(OAuth2Adapter):
                                 uid=uid,
                                 provider=self.provider_id,
                                 user=user)
-        return SocialLogin(account)
+        return GoogleSocialLogin(account)
 
 oauth2_login = OAuth2LoginView.adapter_view(GoogleOAuth2Adapter)
 oauth2_callback = OAuth2CallbackView.adapter_view(GoogleOAuth2Adapter)

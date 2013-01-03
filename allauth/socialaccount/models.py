@@ -2,9 +2,11 @@ from django.db import models
 from django.contrib.auth import authenticate
 from django.contrib.sites.models import Site
 from django.utils import simplejson
+from django.http import HttpResponseServerError
 
 import allauth.app_settings
-from allauth.utils import get_login_redirect_url
+from allauth.socialaccount.app_settings import TRUST_GOOGLE
+from allauth.utils import get_login_redirect_url, get_user_model
 from allauth.account.adapter import get_adapter
 
 import providers
@@ -202,5 +204,67 @@ class SocialLogin(object):
         else:
             state = {}
         return state
-    
+
+
+class GoogleSocialLogin(SocialLogin):
+
+    def lookup(self):
+        """
+        Lookup existing account, if any.
+
+        If TRUST_GOOGLE == True, then create a SocialAccount if none is found
+        and there is an existing User account with a matching email address. 
+        """
+        assert not self.is_existing
+        try:
+            a = SocialAccount.objects.get(provider=self.account.provider, 
+                                          uid=self.account.uid)
+            # Update account
+            a.extra_data = self.account.extra_data
+            self.account = a
+            a.save()
+            # Update token
+            if self.token:
+                assert not self.token.pk
+                try:
+                    t = SocialToken.objects.get(account=self.account,
+                                                app=self.token.app)
+                    t.token = self.token.token
+                    t.token_secret = self.token.token_secret
+                    t.save()
+                    self.token = t
+                except SocialToken.DoesNotExist:
+                    self.token.account = a
+                    self.token.save()
+        except SocialAccount.DoesNotExist:
+            # Create SocialAccount if there is a matching user account
             
+            if TRUST_GOOGLE:
+                try:
+                    User = get_user_model()
+                    u = User.objects.get(email=self.account.user.email)
+
+                    # Create account
+                    a = SocialAccount(user=u,
+                                    provider=self.account.provider, 
+                                    uid=self.account.uid,
+                                    extra_data = self.account.extra_data)
+                    self.account = a
+                    a.save()
+                    # Update token
+                    if self.token:
+                        assert not self.token.pk
+                        try:
+                            t = SocialToken.objects.get(account=self.account,
+                                                        app=self.token.app)
+                            t.token = self.token.token
+                            t.token_secret = self.token.token_secret
+                            t.save()
+                            self.token = t
+                        except SocialToken.DoesNotExist:
+                            self.token.account = a
+                            self.token.save()
+                except User.DoesNotExist:
+                    pass
+            else:
+                pass
