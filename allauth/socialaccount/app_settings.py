@@ -2,6 +2,10 @@ class AppSettings(object):
 
     def __init__(self, prefix):
         self.prefix = prefix
+        # If trust google emails, then email must be unique
+        from allauth.account import app_settings as account_settings
+        assert (self.TRUST_GOOGLE_EMAIL
+                ==account_settings.UNIQUE_EMAIL) or not self.TRUST_GOOGLE
 
     def _setting(self, name, dflt):
         from django.conf import settings
@@ -10,11 +14,11 @@ class AppSettings(object):
     @property
     def QUERY_EMAIL(self):
         """
-        Request e-mail address from 3rd party account provider? 
+        Request e-mail address from 3rd party account provider?
         E.g. using OpenID AX
         """
         from allauth.account import app_settings as account_settings
-        return self._setting("QUERY_EMAIL", 
+        return self._setting("QUERY_EMAIL",
                              account_settings.EMAIL_REQUIRED)
 
     @property
@@ -46,6 +50,13 @@ class AppSettings(object):
         """
         return self._setting("PROVIDERS", {})
 
+    @property
+    def TRUST_GOOGLE_EMAIL(self):
+        """
+        Trust that an authenticated Google email address should be logged into
+        an user account with a matching email address
+        """
+        return self._setting("TRUST_GOOGLE", False)
 
 # Ugly? Guido recommends this himself ...
 # http://mail.python.org/pipermail/python-ideas/2012-May/014969.html

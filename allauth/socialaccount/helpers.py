@@ -12,7 +12,7 @@ from allauth.account.utils import send_email_confirmation, \
     perform_login, complete_signup
 from allauth.account import app_settings as account_settings
 
-from models import SocialLogin
+from models import SocialLogin, SocialAccount
 import app_settings
 import signals
 
@@ -51,7 +51,7 @@ def _process_signup(request, sociallogin):
         # (create user, send email, in active etc..)
         u = sociallogin.account.user
         u.username = generate_unique_username(u.username
-                                              or email 
+                                              or email
                                               or 'user')
         u.last_name = (u.last_name or '') \
             [0:User._meta.get_field('last_name').max_length]
@@ -73,7 +73,7 @@ def _login_social_account(request, sociallogin):
             {},
             context_instance=RequestContext(request))
     else:
-        ret = perform_login(request, user, 
+        ret = perform_login(request, user,
                             redirect_url=sociallogin.get_redirect_url(request))
     return ret
 
@@ -88,7 +88,7 @@ def complete_social_login(request, sociallogin):
     assert not sociallogin.is_existing
     sociallogin.lookup()
     signals.pre_social_login.send(sender=SocialLogin,
-                                  request=request, 
+                                  request=request,
                                   sociallogin=sociallogin)
     if request.user.is_authenticated():
         if sociallogin.is_existing:
@@ -110,13 +110,38 @@ def complete_social_login(request, sociallogin):
             default_next = reverse('socialaccount_connections')
             next = sociallogin.get_redirect_url(request,
                                                 fallback=default_next)
-            messages.add_message(request, messages.INFO, 
+            messages.add_message(request, messages.INFO,
                                  _('The social account has been connected'))
             return HttpResponseRedirect(next)
     else:
+        email = sociallogin.account.user.email
         if sociallogin.is_existing:
             # Login existing user
             ret = _login_social_account(request, sociallogin)
+        elif sociallogin.trust_provider_email and email_address_exists(email):
+            # Trust provider's email address (e.g. gmail), so will associate
+            # with existing user whose email address matches
+
+            try:
+                u = User.objects.get(email__iexact=email)
+                a = SocialAccount.objects.filter(provider=sociallogin.account.provider,
+                                          user=u).exclude(uid=sociallogin.account.uid)
+                if a:
+                    # Found a SocialAccount for the same email address and provider
+                    # but with a different (provider) user id, which is inconsistent
+                    # so do not associate with matching user and process signup instead
+                    ret = _process_signup(request, sociallogin)
+                else:
+                    sociallogin.account.user = u
+                    sociallogin.save()
+                    ret = _login_social_account(request, sociallogin)
+            except User.MultipleObjectsReturned:
+                # Unable to associate to a unique email address, so continue
+                # with a sign-up process to create a unique username.
+                #
+                # sociallogin.trust_provider_email is expected to be used in
+                # conjunction with UNIQUE_EMAIL == True.
+                ret = _process_signup(request, sociallogin)
         else:
             # New social user
             ret = _process_signup(request, sociallogin)
@@ -172,8 +197,8 @@ def _copy_avatar(request, user, account):
 def complete_social_signup(request, sociallogin):
     if app_settings.AVATAR_SUPPORT:
         _copy_avatar(request, sociallogin.account.user, sociallogin.account)
-    return complete_signup(request, 
-                           sociallogin.account.user, 
+    return complete_signup(request,
+                           sociallogin.account.user,
                            sociallogin.get_redirect_url(request))
 
 
