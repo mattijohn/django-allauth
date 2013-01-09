@@ -4,7 +4,7 @@ from allauth.account.models import EmailAddress
 from allauth.socialaccount.providers.oauth2.views import (OAuth2Adapter,
                                                           OAuth2LoginView,
                                                           OAuth2CallbackView)
-from allauth.socialaccount.app_settings import TRUST_GOOGLE_EMAIL
+from allauth.socialaccount import app_settings as socialaccount_settings
 from allauth.socialaccount.models import SocialLogin, SocialAccount
 from allauth.utils import get_user_model
 
@@ -49,7 +49,7 @@ class GoogleOAuth2Adapter(OAuth2Adapter):
                                 user=user)
         return SocialLogin(account,
                            email_addresses=email_addresses,
-                           trust_provider_email=TRUST_GOOGLE_EMAIL)
+                           trust_provider_email=socialaccount_settings.TRUST_GOOGLE_EMAIL)
 
 oauth2_login = OAuth2LoginView.adapter_view(GoogleOAuth2Adapter)
 oauth2_callback = OAuth2CallbackView.adapter_view(GoogleOAuth2Adapter)

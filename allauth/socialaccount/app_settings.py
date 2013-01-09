@@ -5,7 +5,7 @@ class AppSettings(object):
         # If trust google emails, then email must be unique
         from allauth.account import app_settings as account_settings
         assert (self.TRUST_GOOGLE_EMAIL
-                ==account_settings.UNIQUE_EMAIL) or not self.TRUST_GOOGLE
+                ==account_settings.UNIQUE_EMAIL) or not self.TRUST_GOOGLE_EMAIL
 
     def _setting(self, name, dflt):
         from django.conf import settings
@@ -56,7 +56,7 @@ class AppSettings(object):
         Trust that an authenticated Google email address should be logged into
         an user account with a matching email address
         """
-        return self._setting("TRUST_GOOGLE", False)
+        return self._setting("TRUST_GOOGLE_EMAIL", False)
 
 # Ugly? Guido recommends this himself ...
 # http://mail.python.org/pipermail/python-ideas/2012-May/014969.html
